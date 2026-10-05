@@ -169,6 +169,35 @@
         </div>
       </div>
 
+      <section class="admin-employees-section" id="admin-employees-section" aria-labelledby="employees-heading" hidden>
+        <div class="admin-section-heading">
+          <div>
+            <span class="admin-section-kicker">Team</span>
+            <h2 id="employees-heading">Employee Management</h2>
+            <p class="employee-storage-note" id="employees-storage-note" role="status">Connecting to employee data...</p>
+          </div>
+          <button class="btn-action btn-action--approve" type="button" id="employee-add-btn">Add Employee</button>
+        </div>
+        <div class="admin-table-card">
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Position</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="employees-tbody">
+                <tr><td colspan="5" class="employee-empty">Loading employees...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -202,6 +231,40 @@
           style="font-size: 13px; padding: 8px 18px;">Send Email</button>
       </div>
     </div>
+  </div>
+
+  <div class="admin-modal-overlay" id="employee-modal" hidden>
+    <form class="admin-modal-card" id="employee-form" aria-labelledby="employee-modal-title">
+      <h3 class="admin-modal-title" id="employee-modal-title">Add Employee</h3>
+      <input type="hidden" id="employee-id" />
+      <div class="form-group" style="margin-bottom:16px;">
+        <input type="text" id="employee-name" class="form-input" maxlength="100" required />
+        <label for="employee-name" class="form-label form-label--up">Full Name</label>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <input type="email" id="employee-email" class="form-input" maxlength="254" />
+        <label for="employee-email" class="form-label form-label--up">Email</label>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <input type="tel" id="employee-phone" class="form-input" maxlength="30" />
+        <label for="employee-phone" class="form-label form-label--up">Phone</label>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <input type="text" id="employee-position" class="form-input" maxlength="80" required />
+        <label for="employee-position" class="form-label form-label--up">Position</label>
+      </div>
+      <div class="form-group">
+        <label for="employee-status" class="form-label form-label--up">Status</label>
+        <select id="employee-status" class="form-input">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="admin-modal-actions">
+        <button type="button" class="btn btn-outline" id="employee-cancel-btn">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="employee-save-btn">Save Employee</button>
+      </div>
+    </form>
   </div>
 
   <!-- Toast Container -->

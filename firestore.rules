@@ -2,6 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isEmployeeAdmin() {
+      return request.auth != null
+        && request.auth.token.email in ['lehwangduong@gmail.com', 'anh201107jr@gmail.com'];
+    }
+
     match /reservations/{reservation} {
 
       // ── READ ──────────────────────────────────────────────────────────────
@@ -53,6 +58,10 @@ service cloud.firestore {
       // ── DELETE ────────────────────────────────────────────────────────────
       // Only authenticated admins can delete reservations.
       allow delete: if request.auth != null;
+    }
+
+    match /employees/{employee} {
+      allow read, create, update, delete: if isEmployeeAdmin();
     }
 
   }

@@ -40,12 +40,22 @@ if (document.readyState === 'loading') {
    1. ADMIN AUTHENTICATION — Firebase Auth primary
    ────────────────────────────────────────────────────────── */
 
+const EMPLOYEE_ADMIN_EMAILS = new Set([
+  'lehwangduong@gmail.com',
+  'anh201107jr@gmail.com'
+]);
+
+function isEmployeeAdmin(email) {
+  return Boolean(email) && EMPLOYEE_ADMIN_EMAILS.has(email.toLowerCase());
+}
+
 function initAdminAuth(authInstance) {
   const loginSection = document.getElementById('admin-login-section');
   const dashSection  = document.getElementById('admin-dashboard-section');
   const loginForm    = document.getElementById('admin-login-form');
   const logoutBtn    = document.getElementById('admin-logout-btn');
   const emailDisplay = document.getElementById('logged-admin-email');
+  const employeesSection = document.getElementById('admin-employees-section');
 
   // ── Session state driven by Firebase Auth ──────────────────
   authInstance.onAuthStateChanged((user) => {
@@ -57,8 +67,12 @@ function initAdminAuth(authInstance) {
       dashSection.hidden = false;
       dashSection.style.display = 'block';
       loadReservations();
+      const canManageEmployees = isEmployeeAdmin(user.email);
+      if (employeesSection) employeesSection.hidden = !canManageEmployees;
+      if (canManageEmployees) loadEmployees();
     } else {
       // Not authenticated: show login
+      if (employeesSection) employeesSection.hidden = true;
       loginSection.hidden = false;
       loginSection.style.display = 'flex';
       dashSection.hidden = true;
@@ -196,6 +210,326 @@ function initAdminDashboard() {
 
       if (modal) modal.hidden = true;
     });
+  }
+
+  initEmployeeManagement();
+}
+
+let allEmployees = [];
+let employeeStorageMode = 'firestore';
+let employeeSyncInProgress = false;
+const employeeDeletionStorageKey = 'mocha_employee_deletions';
+
+function initEmployeeManagement() {
+  const form = document.getElementById('employee-form');
+  const modal = document.getElementById('employee-modal');
+  const tbody = document.getElementById('employees-tbody');
+  const addButton = document.getElementById('employee-add-btn');
+  const cancelButton = document.getElementById('employee-cancel-btn');
+
+  if (addButton) addButton.addEventListener('click', () => openEmployeeForm());
+  if (cancelButton && modal) cancelButton.addEventListener('click', () => { modal.hidden = true; });
+
+  if (tbody) {
+    tbody.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-employee-action]');
+      if (!button) return;
+      const employeeId = button.dataset.employeeId;
+      if (button.dataset.employeeAction === 'edit') openEmployeeForm(employeeId);
+      if (button.dataset.employeeAction === 'delete') deleteEmployee(employeeId);
+    });
+  }
+
+  if (!form) return;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const dbInstance = window.db || window.firebaseDb;
+    const employeeId = document.getElementById('employee-id').value;
+    const existingEmployee = allEmployees.find(employee => employee.id === employeeId);
+    const employee = {
+      name: document.getElementById('employee-name').value.trim(),
+      email: document.getElementById('employee-email').value.trim(),
+      phone: document.getElementById('employee-phone').value.trim(),
+      position: document.getElementById('employee-position').value.trim(),
+      status: document.getElementById('employee-status').value,
+      updatedAt: new Date().toISOString()
+    };
+    if (!employee.name || !employee.position) return;
+    employee.createdAt = existingEmployee?.createdAt || employee.updatedAt;
+
+    const saveButton = document.getElementById('employee-save-btn');
+    saveButton.disabled = true;
+
+    const saveLocally = () => {
+      const savedEmployee = {
+        ...employee,
+        id: employeeId || `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        isLocal: true,
+        hasRemoteRecord: Boolean(existingEmployee && (!existingEmployee.isLocal || existingEmployee.hasRemoteRecord))
+      };
+      const existingIndex = allEmployees.findIndex(item => item.id === savedEmployee.id);
+      if (existingIndex >= 0) allEmployees[existingIndex] = savedEmployee;
+      else allEmployees.push(savedEmployee);
+      writeLocalEmployees();
+      renderEmployees();
+      modal.hidden = true;
+      form.reset();
+      setEmployeeStorageNotice();
+      showToast('Saved on this browser; waiting to sync with Firebase.', 'info');
+    };
+
+    if (!dbInstance || employeeStorageMode === 'local') {
+      employeeStorageMode = 'local';
+      saveLocally();
+      saveButton.disabled = false;
+      return;
+    }
+
+    try {
+      if (employeeId && existingEmployee && !existingEmployee.isLocal) {
+        await dbInstance.collection('employees').doc(employeeId).update(employee);
+      } else if (employeeId) {
+        await dbInstance.collection('employees').doc(employeeId).set(employee);
+      } else {
+        await dbInstance.collection('employees').add(employee);
+      }
+      modal.hidden = true;
+      form.reset();
+      showToast(employeeId ? 'Employee updated.' : 'Employee added.', 'success');
+    } catch (error) {
+      console.error('Employee save error:', error);
+      if (isEmployeeAccessError(error)) {
+        employeeStorageMode = 'local';
+        saveLocally();
+      } else {
+        showToast(getEmployeeErrorMessage(error, 'save'), 'error');
+      }
+    } finally {
+      saveButton.disabled = false;
+    }
+  });
+}
+
+function loadEmployees() {
+  const tbody = document.getElementById('employees-tbody');
+  const dbInstance = window.db || window.firebaseDb;
+  allEmployees = readLocalEmployees();
+  renderEmployees();
+  if (!tbody || !dbInstance || typeof dbInstance.collection !== 'function') {
+    employeeStorageMode = 'local';
+    setEmployeeStorageNotice();
+    return;
+  }
+
+  dbInstance.collection('employees').orderBy('name').onSnapshot(async (snapshot) => {
+    if (employeeSyncInProgress) return;
+    const localEmployees = readLocalEmployees().filter(employee => employee.isLocal);
+    const deletedIds = readLocalEmployeeDeletions();
+    const deletedIdSet = new Set(deletedIds);
+    const remoteEmployees = snapshot.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(employee => !deletedIdSet.has(employee.id));
+    const remoteIds = new Set(remoteEmployees.map(employee => employee.id));
+    allEmployees = remoteEmployees.concat(localEmployees.filter(employee =>
+      !remoteIds.has(employee.id) && !deletedIdSet.has(employee.id)
+    ));
+
+    if (localEmployees.length > 0 || deletedIds.length > 0) {
+      employeeSyncInProgress = true;
+      employeeStorageMode = 'firestore';
+      try {
+        for (const employeeId of deletedIds) {
+          await dbInstance.collection('employees').doc(employeeId).delete();
+        }
+        for (const localEmployee of localEmployees) {
+          const employeeData = {
+            name: localEmployee.name || '',
+            email: localEmployee.email || '',
+            phone: localEmployee.phone || '',
+            position: localEmployee.position || '',
+            status: localEmployee.status === 'inactive' ? 'inactive' : 'active',
+            createdAt: localEmployee.createdAt || new Date().toISOString(),
+            updatedAt: localEmployee.updatedAt || new Date().toISOString()
+          };
+          await dbInstance.collection('employees').doc(localEmployee.id).set(employeeData);
+          allEmployees = allEmployees.map(employee => employee.id === localEmployee.id
+            ? { ...employeeData, id: localEmployee.id }
+            : employee);
+        }
+        writeLocalEmployeeDeletions([]);
+        showToast('Employee changes synced with Firebase.', 'success');
+      } catch (error) {
+        console.error('Employee sync error:', error);
+        employeeStorageMode = 'local';
+        setEmployeeStorageNotice();
+        renderEmployees();
+        showToast(getEmployeeErrorMessage(error, 'sync'), 'error');
+        return;
+      } finally {
+        employeeSyncInProgress = false;
+      }
+    }
+
+    employeeStorageMode = 'firestore';
+    writeLocalEmployees();
+    setEmployeeStorageNotice();
+    renderEmployees();
+  }, (error) => {
+    console.error('Employee snapshot error:', error);
+    employeeStorageMode = 'local';
+    setEmployeeStorageNotice();
+    renderEmployees();
+    showToast(getEmployeeErrorMessage(error, 'read'), 'error');
+  });
+}
+
+function readLocalEmployees() {
+  try {
+    const employees = JSON.parse(localStorage.getItem('mocha_employees') || '[]');
+    return Array.isArray(employees) ? employees : [];
+  } catch (error) {
+    console.warn('Employee local data read error:', error);
+    return [];
+  }
+}
+
+function writeLocalEmployees() {
+  try {
+    localStorage.setItem('mocha_employees', JSON.stringify(allEmployees));
+    return true;
+  } catch (error) {
+    console.warn('Employee local data write error:', error);
+    showToast('Could not save employee data in this browser.', 'error');
+    return false;
+  }
+}
+
+function readLocalEmployeeDeletions() {
+  try {
+    const employeeIds = JSON.parse(localStorage.getItem(employeeDeletionStorageKey) || '[]');
+    return Array.isArray(employeeIds) ? employeeIds.filter(id => typeof id === 'string') : [];
+  } catch (error) {
+    console.warn('Employee deletion queue read error:', error);
+    return [];
+  }
+}
+
+function writeLocalEmployeeDeletions(employeeIds) {
+  try {
+    localStorage.setItem(employeeDeletionStorageKey, JSON.stringify(employeeIds));
+    return true;
+  } catch (error) {
+    console.warn('Employee deletion queue write error:', error);
+    showToast('Could not save the employee deletion queue in this browser.', 'error');
+    return false;
+  }
+}
+
+function queueLocalEmployeeDeletion(employeeId) {
+  const employeeIds = readLocalEmployeeDeletions();
+  if (!employeeIds.includes(employeeId)) employeeIds.push(employeeId);
+  return writeLocalEmployeeDeletions(employeeIds);
+}
+
+function setEmployeeStorageNotice() {
+  const notice = document.getElementById('employees-storage-note');
+  if (!notice) return;
+  const usingLocalStorage = employeeStorageMode === 'local';
+  notice.textContent = usingLocalStorage
+    ? 'Saved in this browser; changes are not synced with Firebase.'
+    : 'Syncing with Firestore.';
+  notice.classList.toggle('employee-storage-note--local', usingLocalStorage);
+}
+
+function isEmployeeAccessError(error) {
+  return error && ['permission-denied', 'unauthenticated', 'unavailable', 'network-request-failed'].includes(error.code);
+}
+
+function getEmployeeErrorMessage(error, action) {
+  if (error && error.code === 'permission-denied') {
+    return `Firestore denied permission to ${action}. Sign in with an approved admin account and deploy the current Firestore rules.`;
+  }
+  if (error && error.code === 'unauthenticated') {
+    return 'The admin session is invalid or expired. Please sign in again.';
+  }
+  if (error && (error.code === 'unavailable' || error.code === 'network-request-failed')) {
+    return 'Could not connect to Firestore. Check the network and try again.';
+  }
+  return `Could not ${action} employee profile${error && error.code ? ` (${error.code})` : ''}. Please try again.`;
+}
+
+function renderEmployees() {
+  const tbody = document.getElementById('employees-tbody');
+  if (!tbody) return;
+  if (allEmployees.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="employee-empty">No employees yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = allEmployees.map(employee => {
+    const status = employee.status === 'active' ? 'active' : 'inactive';
+    const statusLabel = status === 'active' ? 'Active' : 'Inactive';
+    return `<tr>
+      <td><strong>${escapeHtml(employee.name || '')}</strong></td>
+      <td>${employee.email ? `<div>${escapeHtml(employee.email)}</div>` : ''}${employee.phone ? `<div>${escapeHtml(employee.phone)}</div>` : ''}</td>
+      <td>${escapeHtml(employee.position || '')}</td>
+      <td><span class="employee-status employee-status--${status}">${statusLabel}</span></td>
+      <td><div class="employee-actions">
+        <button class="btn-action btn-action--reply" type="button" data-employee-action="edit" data-employee-id="${escapeHtml(employee.id)}">Edit</button>
+        <button class="btn-action btn-action--delete" type="button" data-employee-action="delete" data-employee-id="${escapeHtml(employee.id)}">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function openEmployeeForm(employeeId = '') {
+  const form = document.getElementById('employee-form');
+  const modal = document.getElementById('employee-modal');
+  const employee = allEmployees.find(item => item.id === employeeId);
+  if (!form || !modal) return;
+  form.reset();
+  document.getElementById('employee-id').value = employee ? employee.id : '';
+  document.getElementById('employee-name').value = employee ? employee.name || '' : '';
+  document.getElementById('employee-email').value = employee ? employee.email || '' : '';
+  document.getElementById('employee-phone').value = employee ? employee.phone || '' : '';
+  document.getElementById('employee-position').value = employee ? employee.position || '' : '';
+  document.getElementById('employee-status').value = employee && employee.status === 'inactive' ? 'inactive' : 'active';
+  document.getElementById('employee-modal-title').textContent = employee ? 'Edit Employee' : 'Add Employee';
+  modal.hidden = false;
+  document.getElementById('employee-name').focus();
+}
+
+async function deleteEmployee(employeeId) {
+  const employee = allEmployees.find(item => item.id === employeeId);
+  if (!employee || !confirm(`Delete employee profile ${employee.name || ''}?`)) return;
+  if (employeeStorageMode === 'local' || employee.isLocal) {
+    if ((!employee.isLocal || employee.hasRemoteRecord) && !queueLocalEmployeeDeletion(employeeId)) return;
+    allEmployees = allEmployees.filter(item => item.id !== employeeId);
+    writeLocalEmployees();
+    renderEmployees();
+    showToast('Employee removed from this browser.', 'info');
+    return;
+  }
+  try {
+    await (window.db || window.firebaseDb).collection('employees').doc(employeeId).delete();
+    showToast('Employee deleted.', 'success');
+  } catch (error) {
+    console.error('Employee delete error:', error);
+    if (isEmployeeAccessError(error)) {
+      employeeStorageMode = 'local';
+      if (!queueLocalEmployeeDeletion(employeeId)) {
+        setEmployeeStorageNotice();
+        showToast('Could not save the employee deletion request in this browser.', 'error');
+        return;
+      }
+      allEmployees = allEmployees.filter(item => item.id !== employeeId);
+      writeLocalEmployees();
+      renderEmployees();
+      setEmployeeStorageNotice();
+      showToast('Employee removed locally; Firebase sync is pending.', 'info');
+    } else {
+      showToast(getEmployeeErrorMessage(error, 'delete'), 'error');
+    }
   }
 }
 

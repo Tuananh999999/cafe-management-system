@@ -2501,6 +2501,50 @@ img, video, svg, iframe {
   margin-top: 24px;
 }
 
+.admin-employees-section {
+  margin-top: 64px;
+}
+
+.employee-empty {
+  text-align: center;
+  padding: 40px !important;
+  color: var(--warm-gray) !important;
+}
+
+.employee-storage-note {
+  margin-top: 6px;
+  color: var(--success);
+  font-size: 12px;
+}
+
+.employee-storage-note--local {
+  color: #9b473e;
+}
+
+.employee-status {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.employee-status--active {
+  color: #286a59;
+  background: #dceee7;
+}
+
+.employee-status--inactive {
+  color: #79594c;
+  background: #eee4dd;
+}
+
+.employee-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* ----------------------------------------------------------------
    SUCCESS CONFIRMATION MODAL & TOASTS
    ---------------------------------------------------------------- */
