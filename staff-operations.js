@@ -1,7 +1,7 @@
 (() => {
   const db = () => window.firebaseDb || window.db;
   const byId = (id) => document.getElementById(id);
-  const state = { employees: [], shifts: [], attendance: [], payroll: [], reportRows: [], editingShiftId: null, unsubscribers: [] };
+  const state = { employees: [], shifts: [], attendance: [], payroll: [], reportRows: [], editingShiftId: null, selectedShiftId: null, unsubscribers: [] };
   const collections = { employees: 'employees', shifts: 'shifts', attendance: 'attendance', payroll: 'payroll' };
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -69,7 +69,7 @@
     tbody.innerHTML = rows.length ? rows.map((shift) => {
       const start = new Date(shift.startAt);
       const end = new Date(shift.endAt);
-      return '<tr><td>' + escapeHtml(shift.employeeName || employeeName(shift.employeeId)) + '</td><td>' + escapeHtml(shift.shiftDate) + '</td><td>' + escapeHtml(formatStamp(shift.startAt).slice(11) + '–' + formatStamp(shift.endAt).slice(11)) + (shift.endDate !== shift.shiftDate ? '<br><small>Ends ' + escapeHtml(shift.endDate) + '</small>' : '') + '</td><td>' + hoursBetween(start, end) + ' h</td><td class="employee-actions"><button type="button" class="btn-action btn-action--reply" data-shift-action="edit" data-id="' + escapeHtml(shift.id) + '">Edit</button><button type="button" class="btn-action btn-action--delete" data-shift-action="delete" data-id="' + escapeHtml(shift.id) + '">Delete</button></td></tr>';
+      return '<tr' + (state.selectedShiftId === shift.id ? ' class="staff-shift-selected"' : '') + '><td>' + escapeHtml(shift.employeeName || employeeName(shift.employeeId)) + '</td><td>' + escapeHtml(shift.shiftDate) + '</td><td>' + escapeHtml(formatStamp(shift.startAt).slice(11) + '–' + formatStamp(shift.endAt).slice(11)) + (shift.endDate !== shift.shiftDate ? '<br><small>Ends ' + escapeHtml(shift.endDate) + '</small>' : '') + '</td><td>' + hoursBetween(start, end) + ' h</td><td class="employee-actions"><button type="button" class="btn-action btn-action--reply" data-shift-action="edit" data-id="' + escapeHtml(shift.id) + '">Edit</button><button type="button" class="btn-action btn-action--reply" data-shift-action="swap" data-id="' + escapeHtml(shift.id) + '">' + (state.selectedShiftId === shift.id ? 'Cancel swap' : state.selectedShiftId ? 'Swap with selected' : 'Select swap') + '</button><button type="button" class="btn-action btn-action--delete" data-shift-action="delete" data-id="' + escapeHtml(shift.id) + '">Delete</button></td></tr>';
     }).join('') : '<tr><td colspan="5" class="employee-empty">No shifts scheduled.</td></tr>';
   }
   function renderAttendance() {
@@ -146,7 +146,65 @@
     if (!button) return;
     const shift = state.shifts.find((item) => item.id === button.dataset.id);
     if (!shift) return;
-    if (button.dataset.shiftAction === 'edit') {
+    if (button.dataset.shiftAction === 'swap') {
+      if (!state.selectedShiftId) {
+        state.selectedShiftId = shift.id;
+        renderShifts();
+        return notify('First shift selected. Choose a second shift to exchange the assigned employees.', 'info');
+      }
+      if (state.selectedShiftId === shift.id) {
+        state.selectedShiftId = null;
+        renderShifts();
+        return notify('Shift swap selection cancelled.', 'info');
+      }
+      const firstShift = state.shifts.find((item) => item.id === state.selectedShiftId);
+      state.selectedShiftId = null;
+      if (!firstShift) {
+        renderShifts();
+        return notify('The previously selected shift is no longer available. Select again.', 'error');
+      }
+      if (firstShift.employeeId === shift.employeeId) {
+        renderShifts();
+        return notify('Both shifts belong to the same employee; no swap is needed.', 'error');
+      }
+      const firstEmployee = state.employees.find((item) => item.id === firstShift.employeeId);
+      const secondEmployee = state.employees.find((item) => item.id === shift.employeeId);
+      if (!firstEmployee || !secondEmployee || firstEmployee.status === 'inactive' || secondEmployee.status === 'inactive') {
+        renderShifts();
+        return notify('Only active employees can be assigned through a shift swap.', 'error');
+      }
+      const overlaps = (employeeId, target, otherId) => state.shifts.some((item) => {
+        if (item.employeeId !== employeeId || item.id === target.id || item.id === otherId) return false;
+        return new Date(target.startAt).getTime() < new Date(item.endAt).getTime()
+          && new Date(target.endAt).getTime() > new Date(item.startAt).getTime();
+      });
+      if (overlaps(secondEmployee.id, firstShift, shift.id) || overlaps(firstEmployee.id, shift, firstShift.id)) {
+        renderShifts();
+        return notify('Swap rejected: one employee would have overlapping shifts.', 'error');
+      }
+      const database = db();
+      if (!database || typeof database.batch !== 'function') {
+        renderShifts();
+        return notify('Firestore batch writes are unavailable; no swap was made.', 'error');
+      }
+      try {
+        const batch = database.batch();
+        const updatedAt = new Date().toISOString();
+        batch.update(database.collection(collections.shifts).doc(firstShift.id), {
+          employeeId: secondEmployee.id, employeeName: secondEmployee.name, updatedAt
+        });
+        batch.update(database.collection(collections.shifts).doc(shift.id), {
+          employeeId: firstEmployee.id, employeeName: firstEmployee.name, updatedAt
+        });
+        await batch.commit();
+        renderShifts();
+        return notify('Shift assignments exchanged successfully.', 'success');
+      } catch (error) {
+        console.error('[Shift swap]', error);
+        renderShifts();
+        return notify(error.code === 'permission-denied' ? 'Access denied. Configure the Firebase admin claim and rules.' : 'Could not exchange shift assignments.', 'error');
+      }
+    } else if (button.dataset.shiftAction === 'edit') {
       state.editingShiftId = shift.id;
       byId('shift-employee').value = shift.employeeId;
       byId('shift-date').value = shift.shiftDate;
