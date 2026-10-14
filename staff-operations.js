@@ -360,31 +360,80 @@
     }
   }
 
+  function reportPeriod() {
+    const mode = byId('report-filter-mode').value;
+    if (mode === 'month') {
+      const month = byId('report-month').value;
+      if (!/^\\d{4}-\\d{2}$/.test(month || '')) return null;
+      const [year, monthNumber] = month.split('-').map(Number);
+      const from = month + '-01';
+      const to = localDate(new Date(year, monthNumber, 0, 12));
+      return { from, to, label: month };
+    }
+    if (mode === 'day') {
+      const day = byId('report-day').value;
+      return dateValue(day) ? { from: day, to: day, label: day } : null;
+    }
+    const from = byId('report-from').value;
+    const to = byId('report-to').value;
+    if (!dateValue(from) || !dateValue(to) || from > to) return null;
+    return { from, to, label: from + ' to ' + to };
+  }
+  function updateReportFilterFields() {
+    const mode = byId('report-filter-mode').value;
+    byId('report-range-fields').hidden = mode !== 'range';
+    byId('report-month-fields').hidden = mode !== 'month';
+    byId('report-day-fields').hidden = mode !== 'day';
+    byId('report-from').required = mode === 'range';
+    byId('report-to').required = mode === 'range';
+    byId('report-month').required = mode === 'month';
+    byId('report-day').required = mode === 'day';
+  }
   function generateReport(event) {
     if (event) event.preventDefault();
-    const from = byId('report-from').value;
-    const to = byId('report-to').value;
-    if (!dateValue(from) || !dateValue(to) || from > to) return notify('Choose a valid date range where From is on or before Through.', 'error');
+    const period = reportPeriod();
+    if (!period) return notify('Choose a valid month, day, or date range.', 'error');
+    const { from, to, label } = period;
+    const now = Date.now();
+    const lateThresholdMs = 5 * 60 * 1000;
     const rows = state.employees.map((employee) => {
-      const attendance = state.attendance.filter((record) => record.employeeId === employee.id && record.status === 'approved' && record.workDate >= from && record.workDate <= to);
+      const attendance = state.attendance.filter((record) => record.employeeId === employee.id && record.workDate >= from && record.workDate <= to && record.clockInAt);
+      const approved = attendance.filter((record) => record.status === 'approved' && record.clockOutAt);
       const workdays = new Set(attendance.map((record) => record.workDate)).size;
-      const hours = round2(attendance.reduce((sum, record) => sum + (Number(record.hours) || 0), 0));
+      const hours = round2(approved.reduce((sum, record) => sum + (Number(record.hours) || 0), 0));
+      const employeeShifts = state.shifts.filter((shift) => shift.employeeId === employee.id && shift.shiftDate >= from && shift.shiftDate <= to && Number.isFinite(new Date(shift.endAt).getTime()) && new Date(shift.endAt).getTime() <= now);
+      let lateArrivals = 0;
+      let absences = 0;
+      employeeShifts.forEach((shift) => {
+        const shiftStart = new Date(shift.startAt).getTime();
+        const shiftEnd = new Date(shift.endAt).getTime();
+        const matchingAttendance = attendance.find((record) => {
+          const punchIn = new Date(record.clockInAt).getTime();
+          const punchOut = record.clockOutAt ? new Date(record.clockOutAt).getTime() : NaN;
+          return record.workDate === shift.shiftDate
+            && Number.isFinite(punchIn)
+            && punchIn < shiftEnd
+            && (!Number.isFinite(punchOut) || punchOut > shiftStart);
+        });
+        if (!matchingAttendance) absences += 1;
+        else if (new Date(matchingAttendance.clockInAt).getTime() > shiftStart + lateThresholdMs) lateArrivals += 1;
+      });
       const payroll = state.payroll.filter((record) => record.employeeId === employee.id && record.periodStart <= to && record.periodEnd >= from);
       const netPay = round2(payroll.reduce((sum, record) => sum + (Number(record.netPay) || 0), 0));
-      return { employeeId: employee.id, name: employee.name, role: employee.role || '', status: employee.status || 'active', workdays, hours, netPay };
+      return { employeeId: employee.id, name: employee.name, role: employee.role || '', status: employee.status || 'active', workdays, lateArrivals, absences, hours, netPay };
     }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     state.reportRows = rows;
-    byId('report-summary').textContent = 'Period ' + from + ' to ' + to + ' · Employees: ' + rows.length + ' · Workdays: ' + rows.reduce((sum, row) => sum + row.workdays, 0) + ' · Approved hours: ' + money(rows.reduce((sum, row) => sum + row.hours, 0)) + ' · Saved payroll net: ' + money(rows.reduce((sum, row) => sum + row.netPay, 0));
-    byId('report-tbody').innerHTML = rows.length ? rows.map((row) => '<tr><td>' + escapeHtml(row.name) + '<br><small>' + escapeHtml(row.role) + '</small></td><td>' + escapeHtml(row.status) + '</td><td>' + row.workdays + '</td><td>' + money(row.hours) + '</td><td>' + money(row.netPay) + '</td></tr>').join('') : '<tr><td colspan="5" class="employee-empty">No employees in this report.</td></tr>';
+    state.reportPeriod = { from, to, label };
+    byId('report-summary').textContent = 'Period ' + label + ' · Employees: ' + rows.length + ' · Workdays: ' + rows.reduce((sum, row) => sum + row.workdays, 0) + ' · Late arrivals: ' + rows.reduce((sum, row) => sum + row.lateArrivals, 0) + ' · Absences: ' + rows.reduce((sum, row) => sum + row.absences, 0) + ' · Approved hours: ' + money(rows.reduce((sum, row) => sum + row.hours, 0)) + ' · Saved payroll net: ' + money(rows.reduce((sum, row) => sum + row.netPay, 0)) + ' · Late threshold: over 5 minutes after shift start.';
+    byId('report-tbody').innerHTML = rows.length ? rows.map((row) => '<tr><td>' + escapeHtml(row.name) + '<br><small>' + escapeHtml(row.role) + '</small></td><td>' + escapeHtml(row.status) + '</td><td>' + row.workdays + '</td><td>' + row.lateArrivals + '</td><td>' + row.absences + '</td><td>' + money(row.hours) + '</td><td>' + money(row.netPay) + '</td></tr>').join('') : '<tr><td colspan="7" class="employee-empty">No employees in this report.</td></tr>';
   }
   function exportReport() {
-    if (!state.reportRows.length) return notify('Generate a report before exporting CSV.', 'error');
-    const from = byId('report-from').value;
-    const to = byId('report-to').value;
+    if (!state.reportRows.length || !state.reportPeriod) return notify('Generate a report before exporting CSV.', 'error');
+    const { from, to } = state.reportPeriod;
     const csvCell = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-    const rows = [['Employee ID', 'Employee', 'Role', 'Status', 'Workdays', 'Approved hours', 'Saved payroll net'], ...state.reportRows.map((row) => [row.employeeId, row.name, row.role, row.status, row.workdays, row.hours, row.netPay])];
-    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const rows = [['Employee ID', 'Employee', 'Role', 'Status', 'Workdays', 'Late arrivals', 'Absences', 'Approved hours', 'Saved payroll net'], ...state.reportRows.map((row) => [row.employeeId, row.name, row.role, row.status, row.workdays, row.lateArrivals, row.absences, row.hours, row.netPay])];
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\\r\\n');
+    const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -438,6 +487,8 @@
       if (byId('payroll-type').value === 'hourly' && employee.hourlyRate != null) byId('payroll-base').value = employee.hourlyRate;
       if (byId('payroll-type').value === 'monthly' && employee.monthlySalary != null) byId('payroll-base').value = employee.monthlySalary;
     });
+    byId('report-filter-mode').addEventListener('change', updateReportFilterFields);
+    updateReportFilterFields();
     byId('report-form').addEventListener('submit', generateReport);
     byId('report-export').addEventListener('click', exportReport);
 
