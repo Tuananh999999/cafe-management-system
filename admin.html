@@ -143,6 +143,73 @@
           placeholder="Search by guest name, email or phone..." />
       </div>
 
+      <!-- Employee Management -->
+      <section class="employee-management" aria-labelledby="employee-management-title">
+        <div class="employee-heading">
+          <div>
+            <p class="employee-eyebrow">TEAM</p>
+            <h2 id="employee-management-title">Employee management</h2>
+            <p class="employee-description">Create employee records, update details, and activate or deactivate staff.</p>
+          </div>
+        </div>
+
+        <form id="employee-form" class="employee-form" novalidate>
+          <h3 id="employee-form-title">Add employee</h3>
+          <div class="employee-form-grid">
+            <label>Full name
+              <input id="employee-name" name="name" type="text" minlength="2" maxlength="100" required autocomplete="name" />
+            </label>
+            <label>Email
+              <input id="employee-email" name="email" type="email" maxlength="254" required autocomplete="email" />
+            </label>
+            <label>Phone
+              <input id="employee-phone" name="phone" type="tel" maxlength="30" autocomplete="tel" />
+            </label>
+            <label>Role / position
+              <input id="employee-role" name="role" type="text" maxlength="80" list="employee-role-options" required />
+              <datalist id="employee-role-options">
+                <option value="Barista"></option>
+                <option value="Cashier"></option>
+                <option value="Shift supervisor"></option>
+                <option value="Manager"></option>
+                <option value="Kitchen staff"></option>
+              </datalist>
+            </label>
+            <label>Hire date
+              <input id="employee-hire-date" name="hireDate" type="date" />
+            </label>
+            <label>Hourly rate
+              <input id="employee-hourly-rate" name="hourlyRate" type="number" min="0" step="0.01" inputmode="decimal" />
+            </label>
+            <label>Status
+              <select id="employee-status" name="status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </label>
+          </div>
+          <div class="employee-form-actions">
+            <button type="submit" class="btn btn-primary" id="employee-save-btn">Save employee</button>
+            <button type="button" class="btn btn-outline" id="employee-cancel-edit-btn" hidden>Cancel edit</button>
+          </div>
+        </form>
+
+        <div class="employee-list-heading">
+          <h3>Staff directory</h3>
+          <input id="employee-search" type="search" class="admin-search-input" placeholder="Search name, email, role or status" aria-label="Search employees" />
+        </div>
+        <div class="admin-table-card">
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Hire date / rate</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="employees-tbody">
+                <tr><td colspan="6" class="employee-empty">Sign in to load employees.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- Table Container -->
       <div class="admin-table-card">
         <div class="admin-table-wrap">
@@ -225,6 +292,7 @@
   <script src="firebase.js" defer></script>
   <script src="main.js" defer></script>
   <script src="admin.js" defer></script>
+  <script src="employees.js" defer></script>
 </body>
 
 </html>
