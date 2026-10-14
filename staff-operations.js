@@ -367,21 +367,22 @@
     if (!dateValue(from) || !dateValue(to) || from > to) return notify('Choose a valid date range where From is on or before Through.', 'error');
     const rows = state.employees.map((employee) => {
       const attendance = state.attendance.filter((record) => record.employeeId === employee.id && record.status === 'approved' && record.workDate >= from && record.workDate <= to);
+      const workdays = new Set(attendance.map((record) => record.workDate)).size;
       const hours = round2(attendance.reduce((sum, record) => sum + (Number(record.hours) || 0), 0));
       const payroll = state.payroll.filter((record) => record.employeeId === employee.id && record.periodStart <= to && record.periodEnd >= from);
       const netPay = round2(payroll.reduce((sum, record) => sum + (Number(record.netPay) || 0), 0));
-      return { employeeId: employee.id, name: employee.name, role: employee.role || '', status: employee.status || 'active', hours, netPay };
+      return { employeeId: employee.id, name: employee.name, role: employee.role || '', status: employee.status || 'active', workdays, hours, netPay };
     }).sort((a, b) => String(a.name).localeCompare(String(b.name)));
     state.reportRows = rows;
-    byId('report-summary').textContent = 'Period ' + from + ' to ' + to + ' · Employees: ' + rows.length + ' · Approved hours: ' + money(rows.reduce((sum, row) => sum + row.hours, 0)) + ' · Saved payroll net: ' + money(rows.reduce((sum, row) => sum + row.netPay, 0));
-    byId('report-tbody').innerHTML = rows.length ? rows.map((row) => '<tr><td>' + escapeHtml(row.name) + '<br><small>' + escapeHtml(row.role) + '</small></td><td>' + escapeHtml(row.status) + '</td><td>' + money(row.hours) + '</td><td>' + money(row.netPay) + '</td></tr>').join('') : '<tr><td colspan="4" class="employee-empty">No employees in this report.</td></tr>';
+    byId('report-summary').textContent = 'Period ' + from + ' to ' + to + ' · Employees: ' + rows.length + ' · Workdays: ' + rows.reduce((sum, row) => sum + row.workdays, 0) + ' · Approved hours: ' + money(rows.reduce((sum, row) => sum + row.hours, 0)) + ' · Saved payroll net: ' + money(rows.reduce((sum, row) => sum + row.netPay, 0));
+    byId('report-tbody').innerHTML = rows.length ? rows.map((row) => '<tr><td>' + escapeHtml(row.name) + '<br><small>' + escapeHtml(row.role) + '</small></td><td>' + escapeHtml(row.status) + '</td><td>' + row.workdays + '</td><td>' + money(row.hours) + '</td><td>' + money(row.netPay) + '</td></tr>').join('') : '<tr><td colspan="5" class="employee-empty">No employees in this report.</td></tr>';
   }
   function exportReport() {
     if (!state.reportRows.length) return notify('Generate a report before exporting CSV.', 'error');
     const from = byId('report-from').value;
     const to = byId('report-to').value;
     const csvCell = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-    const rows = [['Employee ID', 'Employee', 'Role', 'Status', 'Approved hours', 'Saved payroll net'], ...state.reportRows.map((row) => [row.employeeId, row.name, row.role, row.status, row.hours, row.netPay])];
+    const rows = [['Employee ID', 'Employee', 'Role', 'Status', 'Workdays', 'Approved hours', 'Saved payroll net'], ...state.reportRows.map((row) => [row.employeeId, row.name, row.role, row.status, row.workdays, row.hours, row.netPay])];
     const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
