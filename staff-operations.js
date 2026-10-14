@@ -11,7 +11,12 @@
   const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   const validTime = (value) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value || '');
   const timeMinutes = (value) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
-  const dateValue = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && !Number.isNaN(new Date(value + 'T12:00:00').getTime());
+  const dateValue = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day, 12);
+    return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day;
+  };
   const parseLocal = (date, time) => {
     if (!dateValue(date) || !validTime(time)) return null;
     const [year, month, day] = date.split('-').map(Number);
