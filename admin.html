@@ -210,6 +210,79 @@
         </div>
       </section>
 
+      <!-- Staff operations: shifts, attendance, payroll, reports -->
+      <section class="staff-operations" aria-labelledby="staff-operations-title">
+        <div class="employee-heading">
+          <div>
+            <p class="employee-eyebrow">OPERATIONS</p>
+            <h2 id="staff-operations-title">Shifts, attendance &amp; payroll</h2>
+            <p class="employee-description">Use 24-hour HH:MM times. Overnight shifts and punches can cross midnight.</p>
+          </div>
+        </div>
+
+        <div class="staff-ops-grid">
+          <section class="employee-form" aria-labelledby="shift-title">
+            <h3 id="shift-title">Shift scheduling</h3>
+            <form id="shift-form" class="staff-form-grid">
+              <label>Employee <select id="shift-employee" required><option value="">Select employee</option></select></label>
+              <label>Shift date <input id="shift-date" type="date" required /></label>
+              <label>Start time (24-hour) <input id="shift-start" type="text" inputmode="numeric" placeholder="09:00" pattern="([01]\d|2[0-3]):[0-5]\d" maxlength="5" required /></label>
+              <label>End time (24-hour) <input id="shift-end" type="text" inputmode="numeric" placeholder="17:00" pattern="([01]\d|2[0-3]):[0-5]\d" maxlength="5" required /></label>
+              <label>Position / task <input id="shift-role" type="text" maxlength="80" placeholder="Barista" /></label>
+              <label>Notes <input id="shift-notes" type="text" maxlength="250" /></label>
+              <div class="staff-form-actions"><button class="btn btn-primary" type="submit" id="shift-save-btn">Add shift</button><button class="btn btn-outline" type="button" id="shift-reset-btn">Reset</button></div>
+            </form>
+            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Date</th><th>Time</th><th>Duration</th><th>Actions</th></tr></thead><tbody id="shifts-tbody"><tr><td colspan="5" class="employee-empty">Loading shifts…</td></tr></tbody></table></div>
+          </section>
+
+          <section class="employee-form" aria-labelledby="attendance-title">
+            <h3 id="attendance-title">24-hour time clock</h3>
+            <form id="attendance-form" class="staff-form-grid">
+              <label>Employee <select id="attendance-employee" required><option value="">Select employee</option></select></label>
+              <label>Work date <input id="attendance-date" type="date" required /></label>
+              <label>Clock in (HH:MM) <input id="attendance-in" type="text" inputmode="numeric" placeholder="22:00" pattern="([01]\d|2[0-3]):[0-5]\d" maxlength="5" required /></label>
+              <label>Clock-out date <input id="attendance-out-date" type="date" /></label>
+              <label>Clock out (HH:MM) <input id="attendance-out" type="text" inputmode="numeric" placeholder="06:00" pattern="([01]\d|2[0-3]):[0-5]\d" maxlength="5" required /></label>
+              <label>Unpaid break (minutes) <input id="attendance-break" type="number" min="0" max="720" step="1" value="0" required /></label>
+              <label>Approval status <select id="attendance-status"><option value="approved">Approved</option><option value="pending">Pending review</option></select></label>
+              <div class="staff-form-actions"><button class="btn btn-primary" type="submit">Save time record</button><button class="btn btn-outline" type="button" id="attendance-clockout-next">Set next-day clock-out</button></div>
+            </form>
+            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Clock in</th><th>Clock out</th><th>Hours</th><th>Status</th><th>Actions</th></tr></thead><tbody id="attendance-tbody"><tr><td colspan="6" class="employee-empty">Loading attendance…</td></tr></tbody></table></div>
+          </section>
+
+          <section class="employee-form" aria-labelledby="payroll-title">
+            <h3 id="payroll-title">Payroll calculation</h3>
+            <p class="employee-description staff-note">Hourly employees are paid for recorded hours; monthly employees receive base monthly pay. Weekly hours above 40 use the overtime multiplier. Bonus and penalty are entered per employee and pay period.</p>
+            <form id="payroll-form" class="staff-form-grid">
+              <label>Pay period <input id="payroll-period" type="month" required /></label>
+              <label>Employee <select id="payroll-employee" required><option value="">Select employee</option></select></label>
+              <label>Pay type <select id="payroll-type"><option value="hourly">Hourly</option><option value="monthly">Monthly</option></select></label>
+              <label>Base rate / monthly salary <input id="payroll-base" type="number" min="0" step="0.01" required /></label>
+              <label>Standard monthly hours <input id="payroll-standard-hours" type="number" min="1" max="744" step="0.01" value="173.33" required /></label>
+              <label>Overtime multiplier <input id="payroll-ot-multiplier" type="number" min="1" max="3" step="0.1" value="1.5" required /></label>
+              <label>Bonus <input id="payroll-bonus" type="number" min="0" step="0.01" value="0" required /></label>
+              <label>Penalty / deduction <input id="payroll-penalty" type="number" min="0" step="0.01" value="0" required /></label>
+              <div class="staff-form-actions"><button class="btn btn-primary" type="submit">Calculate &amp; save payroll</button></div>
+            </form>
+            <div id="payroll-result" class="staff-result" aria-live="polite">Choose an employee and period to calculate payroll from approved time records.</div>
+            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Period</th><th>Employee</th><th>Hours</th><th>Regular</th><th>Overtime</th><th>Gross</th><th>Net</th></tr></thead><tbody id="payroll-tbody"><tr><td colspan="7" class="employee-empty">Loading payroll…</td></tr></tbody></table></div>
+          </section>
+
+          <section class="employee-form" aria-labelledby="reports-title">
+            <h3 id="reports-title">Staff, hours &amp; payroll reports</h3>
+            <form id="report-form" class="staff-form-grid">
+              <label>Filter by <select id="report-filter-mode"><option value="range">Date range</option><option value="month">Month</option><option value="day">Single day</option></select></label>
+              <div id="report-range-fields" class="staff-form-grid"><label>From <input id="report-from" type="date" required /></label><label>Through <input id="report-to" type="date" required /></label></div>
+              <div id="report-month-fields" class="staff-form-grid" hidden><label>Month <input id="report-month" type="month" /></label></div>
+              <div id="report-day-fields" class="staff-form-grid" hidden><label>Day <input id="report-day" type="date" /></label></div>
+              <div class="staff-form-actions"><button class="btn btn-primary" type="submit">Generate report</button><button class="btn btn-outline" type="button" id="report-export">Export CSV</button></div>
+            </form>
+            <div id="report-summary" class="staff-report-summary" aria-live="polite">Choose a date range and generate a report.</div>
+            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Status</th><th>Workdays</th><th>Late arrivals</th><th>Absences</th><th>Approved hours</th><th>Payroll net</th></tr></thead><tbody id="report-tbody"><tr><td colspan="7" class="employee-empty">No report generated yet.</td></tr></tbody></table></div>
+          </section>
+        </div>
+      </section>
+
       <!-- Table Container -->
       <div class="admin-table-card">
         <div class="admin-table-wrap">
@@ -293,6 +366,7 @@
   <script src="main.js" defer></script>
   <script src="admin.js" defer></script>
   <script src="employees.js" defer></script>
+  <script src="staff-operations.js" defer></script>
 </body>
 
 </html>

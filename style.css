@@ -2749,3 +2749,28 @@ img, video, svg, iframe {
 .employee-actions { min-width:230px; }
 .employee-actions .btn-action { margin:2px; }
 @media (max-width: 760px) { .employee-form-grid { grid-template-columns:1fr; } .employee-list-heading { align-items:stretch; } .employee-list-heading .admin-search-input { width:100%; } }
+\n
+/* Shift scheduling, attendance, payroll and reporting */
+.staff-operations { margin: 56px 0; }
+.staff-ops-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; align-items:start; }
+.staff-ops-grid > .employee-form { min-width:0; margin:0; }
+.staff-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+.staff-form-grid label { display:flex; flex-direction:column; gap:7px; min-width:0; color:var(--coffee); font-size:12px; font-weight:600; }
+.staff-form-grid input, .staff-form-grid select { width:100%; min-height:42px; border:1px solid var(--border-mid); border-radius:6px; padding:9px 10px; color:var(--ink); background:#fff; font:inherit; font-weight:400; }
+.staff-form-grid input:focus, .staff-form-grid select:focus { outline:2px solid var(--coffee-mid); outline-offset:1px; }
+.staff-form-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; grid-column:1 / -1; margin-top:4px; }
+.staff-form-actions .btn { cursor:pointer; }
+.staff-table-wrap { width:100%; overflow-x:auto; margin-top:20px; border:1px solid var(--border); border-radius:8px; }
+.staff-table-wrap .admin-table { min-width:540px; }
+.staff-table-wrap .admin-table th, .staff-table-wrap .admin-table td { padding:12px 10px; }
+.staff-note { margin:0 0 18px; line-height:1.65; }
+.staff-result, .staff-report-summary { margin-top:16px; padding:14px; border-radius:8px; background:var(--cream); color:var(--bark); font-size:13px; line-height:1.7; overflow-wrap:anywhere; }
+.staff-report-summary { margin-bottom:14px; }
+.staff-operations small { color:var(--warm-gray); font-size:11px; }
+@media (max-width: 1000px) { .staff-ops-grid { grid-template-columns:1fr; } }
+@media (max-width: 560px) { .staff-form-grid { grid-template-columns:1fr; } .staff-form-actions { grid-column:1; } }
+
+
+.staff-operations [hidden] {
+  display: none !important;
+}
