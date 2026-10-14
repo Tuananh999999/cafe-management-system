@@ -2769,3 +2769,8 @@ img, video, svg, iframe {
 .staff-operations small { color:var(--warm-gray); font-size:11px; }
 @media (max-width: 1000px) { .staff-ops-grid { grid-template-columns:1fr; } }
 @media (max-width: 560px) { .staff-form-grid { grid-template-columns:1fr; } .staff-form-actions { grid-column:1; } }
+
+
+.staff-operations [hidden] {
+  display: none !important;
+}
