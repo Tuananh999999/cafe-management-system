@@ -364,7 +364,7 @@
     const mode = byId('report-filter-mode').value;
     if (mode === 'month') {
       const month = byId('report-month').value;
-      if (!/^\\d{4}-\\d{2}$/.test(month || '')) return null;
+      if (!/^\d{4}-\d{2}$/.test(month || '')) return null;
       const [year, monthNumber] = month.split('-').map(Number);
       const from = month + '-01';
       const to = localDate(new Date(year, monthNumber, 0, 12));
@@ -432,8 +432,8 @@
     const { from, to } = state.reportPeriod;
     const csvCell = (value) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
     const rows = [['Employee ID', 'Employee', 'Role', 'Status', 'Workdays', 'Late arrivals', 'Absences', 'Approved hours', 'Saved payroll net'], ...state.reportRows.map((row) => [row.employeeId, row.name, row.role, row.status, row.workdays, row.lateArrivals, row.absences, row.hours, row.netPay])];
-    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\\r\\n');
-    const blob = new Blob(['\\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const csv = rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
