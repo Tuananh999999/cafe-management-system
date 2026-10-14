@@ -62,5 +62,22 @@ service cloud.firestore {
         && request.auth.token.admin == true;
     }
 
+    // Scheduling, time records, and payroll contain staff and compensation data.
+    // Only Firebase Auth users with an explicit admin custom claim can access them.
+    match /shifts/{shiftId} {
+      allow read, create, update, delete: if request.auth != null
+        && request.auth.token.admin == true;
+    }
+
+    match /attendance/{attendanceId} {
+      allow read, create, update, delete: if request.auth != null
+        && request.auth.token.admin == true;
+    }
+
+    match /payroll/{payrollId} {
+      allow read, create, update, delete: if request.auth != null
+        && request.auth.token.admin == true;
+    }
+
   }
 }
