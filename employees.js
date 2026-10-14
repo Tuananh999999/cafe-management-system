@@ -27,7 +27,7 @@
     ].some((value) => String(value || '').toLowerCase().includes(query)));
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="employee-empty">No employees found.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="employee-empty">No employees found.</td></tr>';
       return;
     }
 
@@ -38,6 +38,7 @@
         <td>${escapeHtml(employee.email)}</td>
         <td>${escapeHtml(employee.phone || '—')}</td>
         <td>${escapeHtml(employee.role)}</td>
+        <td>${escapeHtml(employee.hireDate || '—')}<br><small>${employee.hourlyRate == null ? 'Rate not set' : escapeHtml(Number(employee.hourlyRate).toFixed(2) + ' / hour')}</small></td>
         <td><span class="employee-status employee-status--${status.toLowerCase()}">${status}</span></td>
         <td class="employee-actions">
           <button type="button" class="btn-action btn-action--reply" data-employee-action="edit" data-employee-id="${escapeHtml(employee.id)}">Edit</button>
