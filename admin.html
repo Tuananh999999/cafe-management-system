@@ -271,12 +271,14 @@
           <section class="employee-form" aria-labelledby="reports-title">
             <h3 id="reports-title">Staff, hours &amp; payroll reports</h3>
             <form id="report-form" class="staff-form-grid">
-              <label>From <input id="report-from" type="date" required /></label>
-              <label>Through <input id="report-to" type="date" required /></label>
+              <label>Filter by <select id="report-filter-mode"><option value="range">Date range</option><option value="month">Month</option><option value="day">Single day</option></select></label>
+              <div id="report-range-fields" class="staff-form-grid"><label>From <input id="report-from" type="date" required /></label><label>Through <input id="report-to" type="date" required /></label></div>
+              <div id="report-month-fields" class="staff-form-grid" hidden><label>Month <input id="report-month" type="month" /></label></div>
+              <div id="report-day-fields" class="staff-form-grid" hidden><label>Day <input id="report-day" type="date" /></label></div>
               <div class="staff-form-actions"><button class="btn btn-primary" type="submit">Generate report</button><button class="btn btn-outline" type="button" id="report-export">Export CSV</button></div>
             </form>
             <div id="report-summary" class="staff-report-summary" aria-live="polite">Choose a date range and generate a report.</div>
-            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Status</th><th>Workdays</th><th>Approved hours</th><th>Payroll net</th></tr></thead><tbody id="report-tbody"><tr><td colspan="5" class="employee-empty">No report generated yet.</td></tr></tbody></table></div>
+            <div class="staff-table-wrap"><table class="admin-table"><thead><tr><th>Employee</th><th>Status</th><th>Workdays</th><th>Late arrivals</th><th>Absences</th><th>Approved hours</th><th>Payroll net</th></tr></thead><tbody id="report-tbody"><tr><td colspan="7" class="employee-empty">No report generated yet.</td></tr></tbody></table></div>
           </section>
         </div>
       </section>
