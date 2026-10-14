@@ -164,6 +164,8 @@
 
     if (button.dataset.employeeAction === 'toggle') {
       const nextStatus = employee.status === 'inactive' ? 'active' : 'inactive';
+      const actionLabel = nextStatus === 'active' ? 'activate' : 'deactivate';
+      if (!window.confirm(`Are you sure you want to ${actionLabel} "${employee.name}"?`)) return;
       try {
         await database.collection(collectionName).doc(employee.id).update({
           status: nextStatus,
