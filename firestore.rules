@@ -55,5 +55,12 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
 
+    match /employees/{employeeId} {
+      // Employee records contain personal and pay information. Require an
+      // explicit Firebase Auth custom claim; sign-in alone is not sufficient.
+      allow read, create, update, delete: if request.auth != null
+        && request.auth.token.admin == true;
+    }
+
   }
 }
